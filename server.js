@@ -40,32 +40,60 @@ app.get('/', async (req, res) => {
     res.render('index.ejs', { vacay: allTrips })
 })
 
-// TODO: Make into a mongoose function
 app.post('/destinations', (req, res) => {
     const accessKey = process.env.UNSPLASH_KEY
-    const url = encodeURI(`https://api.unsplash.com/photos/random/?client_id=${accessKey}&query=${req.body.destinationName}&query=${req.body.location}`)
+    const url = encodeURI(`https://api.unsplash.com/search/photos/?client_id=${accessKey}&query=${req.body.destinationName, req.body.location}`)
 
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            console.log(data)
-            console.log(data.urls.thumb)
-            let source = data.urls.thumb
+            let source = data.results[0].urls.thumb
             return source
         })
-        .then(source => {
-            vacayCollection.insertOne({
+        .then(async source => {
+            const newDestination = new Destination({
                 destinationName: req.body.destinationName,
                 location: req.body.location,
                 description: req.body.description,
                 imgSRC: source
-
-                //TODO add edited indicator (boolean) to show that card has been edited (Optional)
             })
+            const saveNewDestination = await newDestination.save()
             console.log('Saved to database')
             res.redirect('/')
         })
         .catch(err => {
             console.log(`error ${err}`)
         })
+})
+
+app.put('/changePlace', (req, res) => {
+    const accessKey = process.env.UNSPLASH_KEY
+    const url = encodeURI(`https://api.unsplash.com/search/photos/?client_id=${accessKey}&query=${req.body.newDestinationName, req.body.newLocation}`)
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            let source = data.results[0].urls.thumb
+            return source
+        })
+        .then(async source => {
+            await Destination.findOneAndUpdate(
+                {destinationName: req.body.oldDestinationName}, {
+                        destinationName: req.body.newDestinationName,
+                        location: req.body.newLocation,
+                        description: req.body.newDescription,
+                        imgSRC: source
+                })
+            console.log('Document Updated!')
+            res.redirect('/')
+        })
+        .catch(err => {
+            console.log(`error ${err}`)
+        })
+})
+
+app.delete('/deletePlace', async (req, res) => {
+    const deleteDestination = await Destination.findOneAndDelete({destinationName: req.body.destinationName})
+    console.log('Document deleted!')
+    res.redirect('/')
 })
